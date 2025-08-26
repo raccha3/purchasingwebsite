@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Purchase</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/css/add_purchase.css">
+</head>
+<body>
+    <h1>Add a New Purchase</h1>
+    <form action="/add" method="post">
+        <label for="description">Description:</label>
+        <input type="text" id="description" name="description" required><br><br>
+
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" name="quantity" min="1" required><br><br>
+
+        <label for="unit_price">Unit Price:</label>
+        <input type="number" step="0.01" id="unit_price" name="unit_price" min="0" required><br><br>
+
+        <label for="vendor">Vendor:</label>
+        <input type="text" id="vendor" name="vendor" required><br><br>
+
+        <label for="link">Link:</label>
+        <input type="url" id="link" name="link" required><br><br>
+
+        <label for="part_number">Part Number:</label>
+        <input type="text" id="part_number" name="part_number"><br><br>
+
+        <label for="request_date">Request Date:</label>
+        <input type="date" id="request_date" name="request_date" required><br><br>
+
+        <label for="needed_by">Needed By:</label>
+        <input type="date" id="needed_by" name="needed_by" required><br><br>
+
+        <label for="subteam">Subteam:</label>
+        <input type="text" id="subteam" name="subteam" required><br><br>
+
+        <label for="notes">Notes:</label>
+        <textarea id="notes" name="notes"></textarea><br><br>
+
+        <button type="submit">Add Purchase</button>
+    </form>
+    <a href="/">Back to Purchases</a>
+</body>
+</html>
