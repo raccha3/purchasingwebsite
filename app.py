@@ -342,6 +342,64 @@ def logout():
     flash("You have been logged out.", "success")
     return redirect(url_for("login"))
 
+@app.route("/setup_database")
+def setup_database():
+    cursor = db.cursor()
+    
+    # Create Users table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Users (
+            UserID INT AUTO_INCREMENT PRIMARY KEY,
+            Username VARCHAR(50) UNIQUE NOT NULL,
+            PasswordHash VARCHAR(255) NOT NULL,
+            Email VARCHAR(100) UNIQUE NOT NULL,
+            Name VARCHAR(100) NOT NULL,
+            IsAdmin BOOLEAN DEFAULT FALSE,
+            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Create ClubPurchases table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ClubPurchases (
+            PurchaseID INT AUTO_INCREMENT PRIMARY KEY,
+            UserID INT NOT NULL,
+            Description TEXT NOT NULL,
+            Quantity INT NOT NULL,
+            UnitPrice DECIMAL(10, 2) NOT NULL,
+            Subtotal DECIMAL(10, 2) NOT NULL,
+            Vendor VARCHAR(255) NOT NULL,
+            Link TEXT,
+            PartNumber VARCHAR(100),
+            RequestDate DATE NOT NULL,
+            NeededBy DATE NOT NULL,
+            Subteam VARCHAR(100) NOT NULL,
+            Notes TEXT,
+            TeamAccount VARCHAR(100),
+            Status ENUM('Submitted', 'Purchased', 'Hold', 'Denied', 'Received') DEFAULT 'Submitted',
+            PurchaseDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+        )
+    """)
+    
+    # Create Reimbursements table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Reimbursements (
+            ReimbursementID INT AUTO_INCREMENT PRIMARY KEY,
+            UserID INT NOT NULL,
+            Amount DECIMAL(10, 2) NOT NULL,
+            Reason TEXT NOT NULL,
+            PayPal VARCHAR(100) NOT NULL,
+            Status ENUM('Submitted', 'Approved', 'Denied') DEFAULT 'Submitted',
+            RequestDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+        )
+    """)
+    
+    db.commit()
+    cursor.close()
+    return "Database tables created successfully!"
+
 # Run the Flask app
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
