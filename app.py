@@ -4,10 +4,11 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from functools import wraps
+import os
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # Replace with your actual secret key
+app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key')
 
 # Initialize Flask extensions
 bcrypt = Bcrypt(app)
@@ -18,15 +19,16 @@ login_manager.login_view = "login"
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
-app.config["MAIL_USERNAME"] = "uwfsaepurchasing@gmail.com"  # Replace with your email
-app.config["MAIL_PASSWORD"] = "oxqt iiot hnlc olqy"  # Replace with your email password
+app.config["MAIL_USERNAME"] = os.environ.get('MAIL_USERNAME', 'uwfsaepurchasing@gmail.com')
+app.config["MAIL_PASSWORD"] = os.environ.get('MAIL_PASSWORD', 'oxqt iiot hnlc olqy')
 mail = Mail(app)
 
 # Connect to your MySQL database
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    database="ClubPurchasesDB"
+    host=os.environ.get('DB_HOST', 'localhost'),
+    user=os.environ.get('DB_USER', 'root'),
+    password=os.environ.get('DB_PASSWORD', ''),
+    database=os.environ.get('DB_NAME', 'ClubPurchasesDB')
 )
 
 # User model for Flask-Login
@@ -342,4 +344,5 @@ def logout():
 
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
