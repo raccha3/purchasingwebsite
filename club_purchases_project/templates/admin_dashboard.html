@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+    <h1>Admin Dashboard</h1>
+    <a href="/">Back to Home</a> | <a href="/logout">Logout</a>
+
+    <!-- Purchases Management Section -->
+    <h2>Manage Purchases</h2>
+
+    <!-- Purchase Filters -->
+    <div>
+        <strong>Filters for Purchases:</strong>
+        <a href="/admin?purchase_filter=Submitted" {% if purchase_filter == "Submitted" %}style="font-weight: bold;"{% endif %}>Submitted</a> |
+        <a href="/admin?purchase_filter=Purchased" {% if purchase_filter == "Purchased" %}style="font-weight: bold;"{% endif %}>Purchased</a> |
+        <a href="/admin?purchase_filter=Hold" {% if purchase_filter == "Hold" %}style="font-weight: bold;"{% endif %}>Hold</a> |
+        <a href="/admin?purchase_filter=Denied" {% if purchase_filter == "Denied" %}style="font-weight: bold;"{% endif %}>Denied</a> |
+        <a href="/admin?purchase_filter=Received" {% if purchase_filter == "Received" %}style="font-weight: bold;"{% endif %}>Received</a>
+    </div>
+
+    <!-- Purchases Table -->
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Subtotal</th>
+            <th>Vendor</th>
+            <th>Link</th>
+            <th>Part Number</th>
+            <th>Request Date</th>
+            <th>Needed By</th>
+            <th>Subteam</th>
+            <th>Notes</th>
+            <th>Status</th>
+            <th>Account Used</th>
+            <th>Actions</th>
+        </tr>
+        {% for purchase in purchases %}
+        <tr>
+            <td>{{ purchase.PurchaseID }}</td>
+            <td>{{ purchase.UserName or 'N/A' }}</td>
+            <td>{{ purchase.Description }}</td>
+            <td>{{ purchase.Quantity }}</td>
+            <td>{{ purchase.UnitPrice }}</td>
+            <td>{{ purchase.Subtotal }}</td>
+            <td>{{ purchase.Vendor }}</td>
+            <td>
+                {% if purchase.Link %}
+                <a href="{{ purchase.Link }}" target="_blank">View</a>
+                {% else %}
+                N/A
+                {% endif %}
+            </td>
+            <td>{{ purchase.PartNumber or 'N/A' }}</td>
+            <td>{{ purchase.RequestDate or 'N/A' }}</td>
+            <td>{{ purchase.NeededBy or 'N/A' }}</td>
+            <td>{{ purchase.Subteam or 'N/A' }}</td>
+            <td>{{ purchase.Notes or 'N/A' }}</td>
+            <td>
+                <form action="/update_status/{{ purchase.PurchaseID }}" method="POST">
+                    <select name="status">
+                        <option value="Submitted" {% if purchase.Status == "Submitted" %}selected{% endif %}>Submitted</option>
+                        <option value="Purchased" {% if purchase.Status == "Purchased" %}selected{% endif %}>Purchased</option>
+                        <option value="Denied" {% if purchase.Status == "Denied" %}selected{% endif %}>Denied</option>
+                        <option value="Hold" {% if purchase.Status == "Hold" %}selected{% endif %}>Hold</option>
+                        <option value="Received" {% if purchase.Status == "Received" %}selected{% endif %}>Received</option>
+                    </select>
+                    <button type="submit">Update</button>
+                </form>
+            </td>
+            <td>
+                <form action="/update_account/{{ purchase.PurchaseID }}" method="POST">
+                    <select name="account_used">
+                        <option value="Member Personal Account" {% if purchase.TeamAccount == "Member Personal Account" %}selected{% endif %}>Member Personal Account</option>
+                        <option value="Chase" {% if purchase.TeamAccount == "Chase" %}selected{% endif %}>Chase</option>
+                        <option value="Course Fees (06-9397)" {% if purchase.TeamAccount == "Course Fees (06-9397)" %}selected{% endif %}>Course Fees (06-9397)</option>
+                        <option value="ME Budget 1 (65-7765)" {% if purchase.TeamAccount == "ME Budget 1 (65-7765)" %}selected{% endif %}>ME Budget 1 (65-7765)</option>
+                        <option value="ME Budget 2 (06-8992)" {% if purchase.TeamAccount == "ME Budget 2 (06-8992)" %}selected{% endif %}>ME Budget 2 (06-8992)</option>
+                    </select>
+                    <button type="submit">Update</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Reimbursements Management Section -->
+    <h2>Manage Reimbursements</h2>
+
+    <!-- Reimbursement Filters -->
+    <div>
+        <strong>Filters for Reimbursements:</strong>
+        <a href="/admin?reimbursement_filter=Submitted" {% if reimbursement_filter == "Submitted" %}style="font-weight: bold;"{% endif %}>Submitted</a> |
+        <a href="/admin?reimbursement_filter=Approved" {% if reimbursement_filter == "Approved" %}style="font-weight: bold;"{% endif %}>Approved</a> |
+        <a href="/admin?reimbursement_filter=Denied" {% if reimbursement_filter == "Denied" %}style="font-weight: bold;"{% endif %}>Denied</a>
+    </div>
+
+    <!-- Reimbursements Table -->
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Amount</th>
+            <th>Reason</th>
+            <th>PayPal</th>
+            <th>Status</th>
+            <th>Request Date</th>
+            <th>Actions</th>
+        </tr>
+        {% for reimbursement in reimbursements %}
+        <tr>
+            <td>{{ reimbursement.ReimbursementID }}</td>
+            <td>{{ reimbursement.UserName or 'N/A' }}</td>
+            <td>{{ reimbursement.Amount }}</td>
+            <td>{{ reimbursement.Reason }}</td>
+            <td>{{ reimbursement.PayPal or 'N/A' }}</td>
+            <td>
+                <form action="/update_reimbursement_status/{{ reimbursement.ReimbursementID }}" method="POST">
+                    <select name="status">
+                        <option value="Submitted" {% if reimbursement.Status == "Submitted" %}selected{% endif %}>Submitted</option>
+                        <option value="Approved" {% if reimbursement.Status == "Approved" %}selected{% endif %}>Approved</option>
+                        <option value="Denied" {% if reimbursement.Status == "Denied" %}selected{% endif %}>Denied</option>
+                    </select>
+                    <button type="submit">Update</button>
+                </form>
+            </td>
+            <td>{{ reimbursement.RequestDate }}</td>
+            <td>
+                <a href="/notify_reimbursement/{{ reimbursement.ReimbursementID }}">Notify User</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>    
+</body>
+</html>
