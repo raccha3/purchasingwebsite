@@ -142,16 +142,16 @@ def update_status(purchase_id):
         """, (new_status, purchase_id))
         db.commit()
 
-        # Send email if status is "Received"
-        if new_status == "Received" and purchase["UserEmail"]:
-            msg = Message(
-                "Your Package Has Been Received!",
-                sender=app.config["MAIL_USERNAME"],
-                recipients=[purchase["UserEmail"]]
-            )
-            msg.body = f"Hi {purchase['UserName']},\n\nYour package for '{purchase['Description']}' has been received."
-            mail.send(msg)
-            flash(f"Notification email sent to {purchase['UserEmail']}!", "success")
+        # # Send email if status is "Received"
+        # if new_status == "Received" and purchase["UserEmail"]:
+        #     msg = Message(
+        #         "Your Package Has Been Received!",
+        #         sender=app.config["MAIL_USERNAME"],
+        #         recipients=[purchase["UserEmail"]]
+        #     )
+        #     msg.body = f"Hi {purchase['UserName']},\n\nYour package for '{purchase['Description']}' has been received."
+        #     mail.send(msg)
+        #     flash(f"Notification email sent to {purchase['UserEmail']}!", "success")
     except Exception as e:
         db.rollback()
         flash(f"Failed to update status or send email: {str(e)}", "danger")
