@@ -250,49 +250,49 @@ def request_reimbursement():
         return redirect("/")
     return render_template("request_reimbursement.html")
 
-# Route to send purchase notification email
-@app.route("/notify/<int:purchase_id>")
-@login_required
-def notify(purchase_id):
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM ClubPurchases WHERE PurchaseID = %s AND UserID = %s", (purchase_id, current_user.id))
-    purchase = cursor.fetchone()
-    cursor.close()
-    if purchase:
-        msg = Message(
-            "Your Package Has Been Received!",
-            sender=app.config["MAIL_USERNAME"],
-            recipients=[current_user.email]
-        )
-        msg.body = f"Hi {current_user.name},\n\nYour package for '{purchase['Description']}' has been received."
-        try:
-            mail.send(msg)
-            flash("Notification email sent!", "success")
-        except Exception as e:
-            flash(f"Failed to send email: {str(e)}", "danger")
-    else:
-        flash("Purchase not found or not associated with your account.", "danger")
-    return redirect("/")
+# # Route to send purchase notification email
+# @app.route("/notify/<int:purchase_id>")
+# @login_required
+# def notify(purchase_id):
+#     cursor = db.cursor(dictionary=True)
+#     cursor.execute("SELECT * FROM ClubPurchases WHERE PurchaseID = %s AND UserID = %s", (purchase_id, current_user.id))
+#     purchase = cursor.fetchone()
+#     cursor.close()
+#     if purchase:
+#         msg = Message(
+#             "Your Package Has Been Received!",
+#             sender=app.config["MAIL_USERNAME"],
+#             recipients=[current_user.email]
+#         )
+#         msg.body = f"Hi {current_user.name},\n\nYour package for '{purchase['Description']}' has been received."
+#         try:
+#             mail.send(msg)
+#             flash("Notification email sent!", "success")
+#         except Exception as e:
+#             flash(f"Failed to send email: {str(e)}", "danger")
+#     else:
+#         flash("Purchase not found or not associated with your account.", "danger")
+#     return redirect("/")
 
-# Route to send reimbursement notification email
-@app.route("/notify_reimbursement/<int:reimbursement_id>")
-@admin_required
-def notify_reimbursement(reimbursement_id):
-    cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT Reimbursements.*, Users.Email, Users.Name FROM Reimbursements LEFT JOIN Users ON Reimbursements.UserID = Users.UserID WHERE ReimbursementID = %s", (reimbursement_id,))
-    reimbursement = cursor.fetchone()
-    if reimbursement:
-        msg = Message(
-            "Reimbursement Request Update",
-            sender=app.config["MAIL_USERNAME"],
-            recipients=[reimbursement["Email"]]
-        )
-        msg.body = f"Hi {reimbursement['Name']},\n\nYour reimbursement request for '{reimbursement['Reason']}' has been updated to '{reimbursement['Status']}'."
-        mail.send(msg)
-        flash("Notification email sent to user!", "success")
-    else:
-        flash("Reimbursement not found.", "danger")
-    return redirect("/admin/reimbursements")
+# # Route to send reimbursement notification email
+# @app.route("/notify_reimbursement/<int:reimbursement_id>")
+# @admin_required
+# def notify_reimbursement(reimbursement_id):
+#     cursor = db.cursor(dictionary=True)
+#     cursor.execute("SELECT Reimbursements.*, Users.Email, Users.Name FROM Reimbursements LEFT JOIN Users ON Reimbursements.UserID = Users.UserID WHERE ReimbursementID = %s", (reimbursement_id,))
+#     reimbursement = cursor.fetchone()
+#     if reimbursement:
+#         msg = Message(
+#             "Reimbursement Request Update",
+#             sender=app.config["MAIL_USERNAME"],
+#             recipients=[reimbursement["Email"]]
+#         )
+#         msg.body = f"Hi {reimbursement['Name']},\n\nYour reimbursement request for '{reimbursement['Reason']}' has been updated to '{reimbursement['Status']}'."
+#         mail.send(msg)
+#         flash("Notification email sent to user!", "success")
+#     else:
+#         flash("Reimbursement not found.", "danger")
+#     return redirect("/admin/reimbursements")
 
 # Registration route
 @app.route("/register", methods=["GET", "POST"])
