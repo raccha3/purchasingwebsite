@@ -23,13 +23,14 @@ app.config["MAIL_USERNAME"] = os.environ.get('MAIL_USERNAME', 'uwfsaepurchasing@
 app.config["MAIL_PASSWORD"] = os.environ.get('MAIL_PASSWORD', 'oxqt iiot hnlc olqy')
 mail = Mail(app)
 
-# Connect to your MySQL database
-db = mysql.connector.connect(
-    host=os.environ.get('DB_HOST', 'localhost'),
-    user=os.environ.get('DB_USER', 'root'),
-    password=os.environ.get('DB_PASSWORD', ''),
-    database=os.environ.get('DB_NAME', 'ClubPurchasesDB')
-)
+# Database connection function
+def get_db_connection():
+    return mysql.connector.connect(
+        host=os.environ.get('DB_HOST', 'localhost'),
+        user=os.environ.get('DB_USER', 'root'),
+        password=os.environ.get('DB_PASSWORD', ''),
+        database=os.environ.get('DB_NAME', 'ClubPurchasesDB')
+    )
 
 # User model for Flask-Login
 class User(UserMixin):
@@ -43,19 +44,23 @@ class User(UserMixin):
 # Flask-Login user loader
 @login_manager.user_loader
 def load_user(user_id):
+    db = get_db_connection()
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM Users WHERE UserID = %s", (user_id,))
-    user_data = cursor.fetchone()
-    cursor.close()
-    if user_data:
-        return User(
-            user_data["UserID"], 
-            user_data["Username"], 
-            user_data["Email"], 
-            user_data["Name"], 
-            user_data["IsAdmin"]
-        )
-    return None
+    try:
+        cursor.execute("SELECT * FROM Users WHERE UserID = %s", (user_id,))
+        user_data = cursor.fetchone()
+        if user_data:
+            return User(
+                user_data["UserID"], 
+                user_data["Username"], 
+                user_data["Email"], 
+                user_data["Name"], 
+                user_data["IsAdmin"]
+            )
+        return None
+    finally:
+        cursor.close()
+        db.close()
 
 # Home route to display all purchases
 @app.route("/")
