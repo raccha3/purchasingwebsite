@@ -66,11 +66,15 @@ def load_user(user_id):
 @app.route("/")
 @login_required
 def index():
+    db = get_db_connection()
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM ClubPurchases WHERE UserID = %s ORDER BY NeededBy;", (current_user.id,))
-    purchases = cursor.fetchall()
-    cursor.close()
-    return render_template("index.html", purchases=purchases)
+    try:
+        cursor.execute("SELECT * FROM ClubPurchases WHERE UserID = %s ORDER BY NeededBy;", (current_user.id,))
+        purchases = cursor.fetchall()
+        return render_template("index.html", purchases=purchases)
+    finally:
+        cursor.close()
+        db.close()
 
 # Admin-only decorator
 def admin_required(f):
@@ -88,82 +92,77 @@ def admin_dashboard():
     purchase_filter = request.args.get("purchase_filter", "Submitted")
     reimbursement_filter = request.args.get("reimbursement_filter", "Submitted")
 
+    db = get_db_connection()
     cursor = db.cursor(dictionary=True)
 
-    # Filtered purchases with User Full Name
-    cursor.execute("""
-        SELECT ClubPurchases.*, Users.Name AS UserName 
-        FROM ClubPurchases 
-        LEFT JOIN Users ON ClubPurchases.UserID = Users.UserID 
-        WHERE ClubPurchases.Status = %s 
-        ORDER BY ClubPurchases.NeededBy;
-    """, (purchase_filter,))
-    purchases = cursor.fetchall()
+    try:
+        # Filtered purchases with User Full Name
+        cursor.execute("""
+            SELECT ClubPurchases.*, Users.Name AS UserName 
+            FROM ClubPurchases 
+            LEFT JOIN Users ON ClubPurchases.UserID = Users.UserID 
+            WHERE ClubPurchases.Status = %s 
+            ORDER BY ClubPurchases.NeededBy;
+        """, (purchase_filter,))
+        purchases = cursor.fetchall()
 
-    # Filtered reimbursements with User Full Name
-    cursor.execute("""
-        SELECT Reimbursements.*, Users.Name AS UserName 
-        FROM Reimbursements 
-        LEFT JOIN Users ON Reimbursements.UserID = Users.UserID 
-        WHERE Reimbursements.Status = %s 
-        ORDER BY Reimbursements.RequestDate DESC;
-    """, (reimbursement_filter,))
-    reimbursements = cursor.fetchall()
+        # Filtered reimbursements with User Full Name
+        cursor.execute("""
+            SELECT Reimbursements.*, Users.Name AS UserName 
+            FROM Reimbursements 
+            LEFT JOIN Users ON Reimbursements.UserID = Users.UserID 
+            WHERE Reimbursements.Status = %s 
+            ORDER BY Reimbursements.RequestDate DESC;
+        """, (reimbursement_filter,))
+        reimbursements = cursor.fetchall()
 
-    cursor.close()
-
-    return render_template(
-        "admin_dashboard.html",
-        purchases=purchases,
-        reimbursements=reimbursements,
-        purchase_filter=purchase_filter,
-        reimbursement_filter=reimbursement_filter
-    )
+        return render_template(
+            "admin_dashboard.html",
+            purchases=purchases,
+            reimbursements=reimbursements,
+            purchase_filter=purchase_filter,
+            reimbursement_filter=reimbursement_filter
+        )
+    finally:
+        cursor.close()
+        db.close()
 
 # Update purchase status (Admin Only)
 @app.route("/update_status/<int:purchase_id>", methods=["POST"])
 @admin_required
 def update_status(purchase_id):
     new_status = request.form["status"]
+    db = get_db_connection()
     cursor = db.cursor(dictionary=True)
 
-    # Fetch purchase details
-    cursor.execute("""
-        SELECT ClubPurchases.*, Users.Name AS UserName, Users.Email AS UserEmail
-        FROM ClubPurchases
-        LEFT JOIN Users ON ClubPurchases.UserID = Users.UserID
-        WHERE ClubPurchases.PurchaseID = %s
-    """, (purchase_id,))
-    purchase = cursor.fetchone()
-
-    if not purchase:
-        flash("Purchase not found.", "danger")
-        return redirect("/admin")
-
-    # Update the status in the database
     try:
+        # Fetch purchase details
+        cursor.execute("""
+            SELECT ClubPurchases.*, Users.Name AS UserName, Users.Email AS UserEmail
+            FROM ClubPurchases
+            LEFT JOIN Users ON ClubPurchases.UserID = Users.UserID
+            WHERE ClubPurchases.PurchaseID = %s
+        """, (purchase_id,))
+        purchase = cursor.fetchone()
+
+        if not purchase:
+            flash("Purchase not found.", "danger")
+            return redirect("/admin")
+
+        # Update the status in the database
         cursor.execute("""
             UPDATE ClubPurchases SET Status = %s WHERE PurchaseID = %s
         """, (new_status, purchase_id))
         db.commit()
 
-        # # Send email if status is "Received"
-        # if new_status == "Received" and purchase["UserEmail"]:
-        #     msg = Message(
-        #         "Your Package Has Been Received!",
-        #         sender=app.config["MAIL_USERNAME"],
-        #         recipients=[purchase["UserEmail"]]
-        #     )
-        #     msg.body = f"Hi {purchase['UserName']},\n\nYour package for '{purchase['Description']}' has been received."
-        #     mail.send(msg)
-        #     flash(f"Notification email sent to {purchase['UserEmail']}!", "success")
+        flash("Purchase status updated!", "success")
     except Exception as e:
         db.rollback()
-        flash(f"Failed to update status or send email: {str(e)}", "danger")
+        flash(f"Failed to update status: {str(e)}", "danger")
     finally:
         cursor.close()
+        db.close()
 
-    flash("Purchase status updated!", "success")
     return redirect("/admin")
 
 # Update reimbursement status (Admin Only)
@@ -171,19 +170,28 @@ def update_status(purchase_id):
 @admin_required
 def update_reimbursement_status(reimbursement_id):
     new_status = request.form["status"]
+    db = get_db_connection()
     cursor = db.cursor()
-    cursor.execute(
-        "UPDATE Reimbursements SET Status = %s WHERE ReimbursementID = %s",
-        (new_status, reimbursement_id)
-    )
-    db.commit()
-    flash("Reimbursement status updated!", "success")
+    try:
+        cursor.execute(
+            "UPDATE Reimbursements SET Status = %s WHERE ReimbursementID = %s",
+            (new_status, reimbursement_id)
+        )
+        db.commit()
+        flash("Reimbursement status updated!", "success")
+    except Exception as e:
+        db.rollback()
+        flash(f"Failed to update reimbursement status: {str(e)}", "danger")
+    finally:
+        cursor.close()
+        db.close()
     return redirect("/admin")
 
 @app.route("/update_account/<int:purchase_id>", methods=["POST"])
 @admin_required
 def update_account(purchase_id):
     account_used = request.form["account_used"]
+    db = get_db_connection()
     cursor = db.cursor()
     try:
         cursor.execute(
@@ -193,10 +201,11 @@ def update_account(purchase_id):
         db.commit()
         flash("Account used updated for the purchase!", "success")
     except Exception as e:
-        db.rollback()  # Rollback in case of error
+        db.rollback()
         flash(f"Failed to update account: {str(e)}", "danger")
     finally:
         cursor.close()
+        db.close()
     return redirect("/admin")
 
 # Route to add a new purchase
@@ -210,29 +219,34 @@ def add_purchase():
         subtotal = float(quantity) * float(unit_price)
         vendor = request.form["vendor"]
         link = request.form["link"]
-        part_number = request.form.get("part_number")  # Optional
+        part_number = request.form.get("part_number")
         request_date = request.form["request_date"]
         needed_by = request.form["needed_by"]
         subteam = request.form["subteam"]
-        notes = request.form.get("notes")  # Optional
+        notes = request.form.get("notes")
+        team_account = None
 
-        # Default team_account value (if not being set in the form)
-        team_account = None  # Or set a default string value like "Unassigned"
-
+        db = get_db_connection()
         cursor = db.cursor()
-        cursor.execute(
-            """INSERT INTO ClubPurchases 
-            (UserID, Description, Quantity, UnitPrice, Subtotal, Vendor, Link, PartNumber, RequestDate, NeededBy, Subteam, Notes, TeamAccount, Status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')""",
-            (
-                current_user.id, description, quantity, unit_price, subtotal, vendor,
-                link, part_number, request_date, needed_by, subteam, notes, team_account
+        try:
+            cursor.execute(
+                """INSERT INTO ClubPurchases 
+                (UserID, Description, Quantity, UnitPrice, Subtotal, Vendor, Link, PartNumber, RequestDate, NeededBy, Subteam, Notes, TeamAccount, Status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')""",
+                (
+                    current_user.id, description, quantity, unit_price, subtotal, vendor,
+                    link, part_number, request_date, needed_by, subteam, notes, team_account
+                )
             )
-        )
-        db.commit()
-        cursor.close()
-        flash("Purchase request submitted!", "success")
-        return redirect("/")
+            db.commit()
+            flash("Purchase request submitted!", "success")
+            return redirect("/")
+        except Exception as e:
+            db.rollback()
+            flash(f"Failed to submit purchase request: {str(e)}", "danger")
+        finally:
+            cursor.close()
+            db.close()
     return render_template("add.html")
 
 # Route to request reimbursement
@@ -244,60 +258,23 @@ def request_reimbursement():
         reason = request.form["reason"]
         paypal = request.form["paypal"]
 
+        db = get_db_connection()
         cursor = db.cursor()
-        cursor.execute(
-            "INSERT INTO Reimbursements (UserID, Amount, Reason, PayPal, Status) VALUES (%s, %s, %s, %s, 'Submitted')",
-            (current_user.id, amount, reason, paypal)
-        )
-        db.commit()
-        cursor.close()
-        flash("Reimbursement request submitted!", "success")
-        return redirect("/")
+        try:
+            cursor.execute(
+                "INSERT INTO Reimbursements (UserID, Amount, Reason, PayPal, Status) VALUES (%s, %s, %s, %s, 'Submitted')",
+                (current_user.id, amount, reason, paypal)
+            )
+            db.commit()
+            flash("Reimbursement request submitted!", "success")
+            return redirect("/")
+        except Exception as e:
+            db.rollback()
+            flash(f"Failed to submit reimbursement request: {str(e)}", "danger")
+        finally:
+            cursor.close()
+            db.close()
     return render_template("request_reimbursement.html")
-
-# # Route to send purchase notification email
-# @app.route("/notify/<int:purchase_id>")
-# @login_required
-# def notify(purchase_id):
-#     cursor = db.cursor(dictionary=True)
-#     cursor.execute("SELECT * FROM ClubPurchases WHERE PurchaseID = %s AND UserID = %s", (purchase_id, current_user.id))
-#     purchase = cursor.fetchone()
-#     cursor.close()
-#     if purchase:
-#         msg = Message(
-#             "Your Package Has Been Received!",
-#             sender=app.config["MAIL_USERNAME"],
-#             recipients=[current_user.email]
-#         )
-#         msg.body = f"Hi {current_user.name},\n\nYour package for '{purchase['Description']}' has been received."
-#         try:
-#             mail.send(msg)
-#             flash("Notification email sent!", "success")
-#         except Exception as e:
-#             flash(f"Failed to send email: {str(e)}", "danger")
-#     else:
-#         flash("Purchase not found or not associated with your account.", "danger")
-#     return redirect("/")
-
-# # Route to send reimbursement notification email
-# @app.route("/notify_reimbursement/<int:reimbursement_id>")
-# @admin_required
-# def notify_reimbursement(reimbursement_id):
-#     cursor = db.cursor(dictionary=True)
-#     cursor.execute("SELECT Reimbursements.*, Users.Email, Users.Name FROM Reimbursements LEFT JOIN Users ON Reimbursements.UserID = Users.UserID WHERE ReimbursementID = %s", (reimbursement_id,))
-#     reimbursement = cursor.fetchone()
-#     if reimbursement:
-#         msg = Message(
-#             "Reimbursement Request Update",
-#             sender=app.config["MAIL_USERNAME"],
-#             recipients=[reimbursement["Email"]]
-#         )
-#         msg.body = f"Hi {reimbursement['Name']},\n\nYour reimbursement request for '{reimbursement['Reason']}' has been updated to '{reimbursement['Status']}'."
-#         mail.send(msg)
-#         flash("Notification email sent to user!", "success")
-#     else:
-#         flash("Reimbursement not found.", "danger")
-#     return redirect("/admin/reimbursements")
 
 # Registration route
 @app.route("/register", methods=["GET", "POST"])
@@ -308,15 +285,24 @@ def register():
         email = request.form["email"]
         name = request.form["name"]
 
+        db = get_db_connection()
         cursor = db.cursor()
-        cursor.execute(
-            "INSERT INTO Users (Username, PasswordHash, Email, Name, IsAdmin) VALUES (%s, %s, %s, %s, FALSE)",
-            (username, password, email, name)
-        )
-        db.commit()
-        cursor.close()
-        flash("Registration successful! Please log in.", "success")
-        return redirect(url_for("login"))
+        try:
+            cursor.execute(
+                "INSERT INTO Users (Username, PasswordHash, Email, Name, IsAdmin) VALUES (%s, %s, %s, %s, FALSE)",
+                (username, password, email, name)
+            )
+            db.commit()
+            flash("Registration successful! Please log in.", "success")
+            return redirect(url_for("login"))
+        except mysql.connector.IntegrityError:
+            flash("Username or email already exists.", "danger")
+        except Exception as e:
+            db.rollback()
+            flash(f"Registration failed: {str(e)}", "danger")
+        finally:
+            cursor.close()
+            db.close()
     return render_template("register.html")
 
 # Login route
@@ -326,17 +312,21 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
+        db = get_db_connection()
         cursor = db.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Users WHERE Username = %s", (username,))
-        user_data = cursor.fetchone()
-        cursor.close()
+        try:
+            cursor.execute("SELECT * FROM Users WHERE Username = %s", (username,))
+            user_data = cursor.fetchone()
 
-        if user_data and bcrypt.check_password_hash(user_data["PasswordHash"], password):
-            user = User(user_data["UserID"], user_data["Username"], user_data["Email"], user_data["Name"], user_data["IsAdmin"])
-            login_user(user)
-            flash("Login successful!", "success")
-            return redirect("/")
-        flash("Invalid username or password.", "danger")
+            if user_data and bcrypt.check_password_hash(user_data["PasswordHash"], password):
+                user = User(user_data["UserID"], user_data["Username"], user_data["Email"], user_data["Name"], user_data["IsAdmin"])
+                login_user(user)
+                flash("Login successful!", "success")
+                return redirect("/")
+            flash("Invalid username or password.", "danger")
+        finally:
+            cursor.close()
+            db.close()
     return render_template("login.html")
 
 # Logout route
@@ -349,61 +339,79 @@ def logout():
 
 @app.route("/setup_database")
 def setup_database():
+    db = get_db_connection()
     cursor = db.cursor()
     
-    # Create Users table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Users (
-            UserID INT AUTO_INCREMENT PRIMARY KEY,
-            Username VARCHAR(50) UNIQUE NOT NULL,
-            PasswordHash VARCHAR(255) NOT NULL,
-            Email VARCHAR(100) UNIQUE NOT NULL,
-            Name VARCHAR(100) NOT NULL,
-            IsAdmin BOOLEAN DEFAULT FALSE,
-            CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
-    # Create ClubPurchases table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS ClubPurchases (
-            PurchaseID INT AUTO_INCREMENT PRIMARY KEY,
-            UserID INT NOT NULL,
-            Description TEXT NOT NULL,
-            Quantity INT NOT NULL,
-            UnitPrice DECIMAL(10, 2) NOT NULL,
-            Subtotal DECIMAL(10, 2) NOT NULL,
-            Vendor VARCHAR(255) NOT NULL,
-            Link TEXT,
-            PartNumber VARCHAR(100),
-            RequestDate DATE NOT NULL,
-            NeededBy DATE NOT NULL,
-            Subteam VARCHAR(100) NOT NULL,
-            Notes TEXT,
-            TeamAccount VARCHAR(100),
-            Status ENUM('Submitted', 'Purchased', 'Hold', 'Denied', 'Received') DEFAULT 'Submitted',
-            PurchaseDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
-        )
-    """)
-    
-    # Create Reimbursements table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Reimbursements (
-            ReimbursementID INT AUTO_INCREMENT PRIMARY KEY,
-            UserID INT NOT NULL,
-            Amount DECIMAL(10, 2) NOT NULL,
-            Reason TEXT NOT NULL,
-            PayPal VARCHAR(100) NOT NULL,
-            Status ENUM('Submitted', 'Approved', 'Denied') DEFAULT 'Submitted',
-            RequestDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
-        )
-    """)
-    
-    db.commit()
-    cursor.close()
-    return "Database tables created successfully!"
+    try:
+        # Create Users table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Users (
+                UserID INT AUTO_INCREMENT PRIMARY KEY,
+                Username VARCHAR(50) UNIQUE NOT NULL,
+                PasswordHash VARCHAR(255) NOT NULL,
+                Email VARCHAR(100) UNIQUE NOT NULL,
+                Name VARCHAR(100) NOT NULL,
+                IsAdmin BOOLEAN DEFAULT FALSE,
+                CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Create ClubPurchases table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ClubPurchases (
+                PurchaseID INT AUTO_INCREMENT PRIMARY KEY,
+                UserID INT NOT NULL,
+                Description TEXT NOT NULL,
+                Quantity INT NOT NULL,
+                UnitPrice DECIMAL(10, 2) NOT NULL,
+                Subtotal DECIMAL(10, 2) NOT NULL,
+                Vendor VARCHAR(255) NOT NULL,
+                Link TEXT,
+                PartNumber VARCHAR(100),
+                RequestDate DATE NOT NULL,
+                NeededBy DATE NOT NULL,
+                Subteam VARCHAR(100) NOT NULL,
+                Notes TEXT,
+                TeamAccount VARCHAR(100),
+                Status ENUM('Submitted', 'Purchased', 'Hold', 'Denied', 'Received') DEFAULT 'Submitted',
+                PurchaseDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+            )
+        """)
+        
+        # Create Reimbursements table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS Reimbursements (
+                ReimbursementID INT AUTO_INCREMENT PRIMARY KEY,
+                UserID INT NOT NULL,
+                Amount DECIMAL(10, 2) NOT NULL,
+                Reason TEXT NOT NULL,
+                PayPal VARCHAR(100) NOT NULL,
+                Status ENUM('Submitted', 'Approved', 'Denied') DEFAULT 'Submitted',
+                RequestDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+            )
+        """)
+        
+        db.commit()
+        return "Database tables created successfully!"
+    finally:
+        cursor.close()
+        db.close()
+
+@app.route("/make_admin/<username>")
+def make_admin(username):
+    db = get_db_connection()
+    cursor = db.cursor()
+    try:
+        cursor.execute("UPDATE Users SET IsAdmin = TRUE WHERE Username = %s", (username,))
+        db.commit()
+        return f"User {username} is now an admin!"
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        cursor.close()
+        db.close()
 
 # Run the Flask app
 if __name__ == "__main__":
