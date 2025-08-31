@@ -399,19 +399,7 @@ def setup_database():
         cursor.close()
         db.close()
 
-@app.route("/make_admin/<username>")
-def make_admin(username):
-    db = get_db_connection()
-    cursor = db.cursor()
-    try:
-        cursor.execute("UPDATE Users SET IsAdmin = TRUE WHERE Username = %s", (username,))
-        db.commit()
-        return f"User {username} is now an admin!"
-    except Exception as e:
-        return f"Error: {str(e)}"
-    finally:
-        cursor.close()
-        db.close()
+
 
 # Run the Flask app
 if __name__ == "__main__":
