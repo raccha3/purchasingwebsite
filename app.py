@@ -460,7 +460,7 @@ def setup_database():
         
 @app.route("/test_email")
 def test_email():
-    success, message = send_email_safely("your-email@example.com", "Test Subject", "Test body")
+    success, message = send_email_safely("raccha333@gmail.com", "Test Subject", "Test body")
     return f"Email test result: {success}, Message: {message}"
     
 # Run the Flask app
