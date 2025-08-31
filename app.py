@@ -457,7 +457,12 @@ def setup_database():
     finally:
         cursor.close()
         db.close()
-
+        
+@app.route("/test_email")
+def test_email():
+    success, message = send_email_safely("your-email@example.com", "Test Subject", "Test body")
+    return f"Email test result: {success}, Message: {message}"
+    
 # Run the Flask app
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
