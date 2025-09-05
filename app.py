@@ -205,7 +205,7 @@ Purchase Details:
 Please collect your item at your earliest convenience.
 
 Best regards,
-Club Purchases Team"""
+Purchasing Team"""
 
             success, message = send_email_safely(purchase["UserEmail"], subject, body)
             if success:
